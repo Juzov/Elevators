@@ -2,8 +2,8 @@
  * Created by Emil on 07/03-17.
  */
 public class Operation {
-    int direction;
-    float location;
+    public int direction;
+    public float location;
 
 
     public Operation(int direction, float location){
@@ -15,5 +15,7 @@ public class Operation {
     public boolean isEqual(Operation temp){
         return (temp.direction == direction || temp.direction == -1) && temp.location == location;
     }
+
+
 
 }

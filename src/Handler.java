@@ -19,10 +19,14 @@ class Handler {
         private Lock lock = new ReentrantLock();
 
         public void addBOperation(Operation add){
+            System.out.print("I am done");
             lock.lock();
+            System.out.print("I am done");
+            if(bOperations.isEmpty()) {bOperations.add(add); return;}
             for (Operation temp : bOperations)
                 if(temp.isEqual(add)) {lock.unlock(); return;}
             bOperations.addLast(add);
+
             lock.unlock();
         }
         //check if elevator is in the same floor & that its the right direction
@@ -63,8 +67,28 @@ class Handler {
         }
     }
 
-    /*public class ElevMonitor{
-    }*/
+    public class eMonitor{
+        private LinkedList<Operation> queue= new LinkedList<>();
+
+        synchronized public void stop(Operation temp){
+            if((int)temp.location == 32000)
+                queue.clear();
+            queue.add(temp);
+
+        }
+
+        synchronized public void addOperation(Operation temp){
+            if(queue.size() == 0) queue.add(temp);
+
+
+        }
+
+        synchronized public void removeOperation(Operation temp){
+
+        }
+
+
+    }
 
     synchronized public static void sendCommand(String command)
     {
@@ -97,22 +121,29 @@ class Handler {
     //put floor requests on a queue.
     //elevator checks when on the floor if someone is waiting to go on the same direction here
     //if so put him into the elevator operation queue.
+
+    //b location direction
     synchronized static void bCommand(String[] sCommand){
+        for (String s:sCommand) {
+            System.out.println(s);
+        }
+
         float floor = (float) Integer.parseInt(sCommand[1]);
         int direction = Integer.parseInt(sCommand[2]);
+        System.out.println(" ");
+        System.out.println(floor + " " + direction);
+
 
         Operation temp = new Operation(direction,floor);
+
 
         Handler.bMonitor.addBOperation(temp);
     }
 
     //set location
     synchronized static void fCommand(String[] sCommand){
-
-
         int elev = Integer.parseInt(sCommand[1]);
-        int location = Integer.parseInt(sCommand[2]);
-
+        float location = Float.parseFloat(sCommand[2]);
         elevators[elev].setLocation(location);
     }
 
@@ -120,7 +151,7 @@ class Handler {
         int elev = Integer.parseInt(sCommand[1]);
         int instruction = Integer.parseInt(sCommand[2]);
 
-        if(instruction == 3200)
+        if(instruction == 32000)
             elevators[elev].addOpFirst(new Operation(0,instruction));
         else{
             //Are we going upward or downward from current pos?
@@ -128,8 +159,7 @@ class Handler {
             Operation temp = new Operation(direction,instruction);
 
             //Where should this command be positioned in the queue?
-            int spot = elevators[elev].getSpot(temp,0);
-            elevators[elev].addOperation(temp,spot);
+            elevators[elev].getSpot(temp);
         }
     }
 
@@ -176,7 +206,6 @@ class Handler {
         String commandWithArguments;
 
         while ((commandWithArguments = rd.readLine()) != null) {
-            System.out.println(commandWithArguments);
             if(!commandWithArguments.equals(""))
                 commandHandler(commandWithArguments);
         }
