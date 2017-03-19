@@ -2,6 +2,7 @@ import sun.awt.image.ImageWatched;
 
 import java.net.Socket;
 import java.io.*;
+import java.util.IllegalFormatException;
 import java.util.LinkedList;
 import java.util.Iterator;
 import java.util.concurrent.locks.Lock;
@@ -11,43 +12,36 @@ class Handler {
 
     private static PrintWriter wr;
     private static Elevator[] elevators;
-    public static bMonitor bMonitor;
+    public static bMonitor bqueue;
 
 
     public class bMonitor{
         private LinkedList<Operation> bOperations= new LinkedList<>();
-        private Lock lock = new ReentrantLock();
 
-        public void addBOperation(Operation add){
-            System.out.print("I am done");
-            lock.lock();
-            System.out.print("I am done");
-            if(bOperations.isEmpty()) {bOperations.add(add); return;}
+        synchronized public void addBOperation(Operation add){
+            if(add == null) return;
+            if(bOperations.isEmpty())
+            {System.out.println("Wassa");bOperations.addLast(add); return;}
             for (Operation temp : bOperations)
-                if(temp.isEqual(add)) {lock.unlock(); return;}
+                if(temp.isEqual(add)) {System.out.println("Nassa"); return; }
             bOperations.addLast(add);
 
-            lock.unlock();
         }
         //check if elevator is in the same floor & that its the right direction
-        public Operation checkFloor(int direction, float location){
-            lock.lock();
-            Operation cElev = new Operation(direction,location);
+        synchronized public Operation checkFloor(int floor) {
+            if(bOperations.isEmpty())
+                return null;
 
             for (Operation temp : bOperations)
-                if(temp.isEqual(cElev)) {
+                if(Math.round(temp.location) == floor) {
                     bOperations.remove(temp);
-                    lock.unlock();
                     return temp;
                 }
-            lock.unlock();
             return null;
-
         }
 
         //Gets called upon free elevator
-        public Operation checkNearest(float location){
-            lock.lock();
+        synchronized public Operation checkNearest(float location ){
             float minDiff = 100;
             Operation nearest = null;
 
@@ -62,33 +56,10 @@ class Handler {
                 }
             }
             bOperations.remove(nearest);
-            lock.unlock();
             return nearest;
         }
     }
 
-    public class eMonitor{
-        private LinkedList<Operation> queue= new LinkedList<>();
-
-        synchronized public void stop(Operation temp){
-            if((int)temp.location == 32000)
-                queue.clear();
-            queue.add(temp);
-
-        }
-
-        synchronized public void addOperation(Operation temp){
-            if(queue.size() == 0) queue.add(temp);
-
-
-        }
-
-        synchronized public void removeOperation(Operation temp){
-
-        }
-
-
-    }
 
     synchronized public static void sendCommand(String command)
     {
@@ -96,9 +67,9 @@ class Handler {
         wr.flush();
     }
 
-    public static void commandHandler(String command){
+    public static void commandHandler(String command) throws InterruptedException {
         String[] sCommand = command.split(" ");
-        if (sCommand.length < 4 && sCommand.length > 1) {
+        if (sCommand.length < 5 && sCommand.length > 1) {
             String operation = sCommand[0];
             switch (operation) {
                 case "b":
@@ -123,12 +94,12 @@ class Handler {
     //if so put him into the elevator operation queue.
 
     //b location direction
-    synchronized static void bCommand(String[] sCommand){
+    static void bCommand(String[] sCommand) throws InterruptedException {
         for (String s:sCommand) {
             System.out.println(s);
         }
 
-        float floor = (float) Integer.parseInt(sCommand[1]);
+        float floor = Float.parseFloat(sCommand[1]);
         int direction = Integer.parseInt(sCommand[2]);
         System.out.println(" ");
         System.out.println(floor + " " + direction);
@@ -136,23 +107,25 @@ class Handler {
 
         Operation temp = new Operation(direction,floor);
 
+ /*       synchronized (Handler.class){
+            bqueue.addBOperation(temp);
+        }*/
 
-        Handler.bMonitor.addBOperation(temp);
     }
 
     //set location
-    synchronized static void fCommand(String[] sCommand){
+    static void fCommand(String[] sCommand){
         int elev = Integer.parseInt(sCommand[1]);
         float location = Float.parseFloat(sCommand[2]);
         elevators[elev].setLocation(location);
     }
 
-    synchronized static void pCommand(String[] sCommand){
+    static void pCommand(String[] sCommand){
         int elev = Integer.parseInt(sCommand[1]);
         int instruction = Integer.parseInt(sCommand[2]);
 
         if(instruction == 32000)
-            elevators[elev].addOpFirst(new Operation(0,instruction));
+            elevators[elev].addStop(new Operation(0,(float) instruction));
         else{
             //Are we going upward or downward from current pos?
             int direction = elevators[elev].compLocation((float)instruction);
