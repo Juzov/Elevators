@@ -9,7 +9,6 @@ import java.util.concurrent.locks.ReentrantLock;
 public class Elevator extends Thread{
     private int id;
     private float location = 0;
-    private int door = -1;
     private int direction = 0;
     LinkedList<Operation> queue = new LinkedList<>();
     public Lock locLock = new ReentrantLock();
@@ -29,79 +28,67 @@ public class Elevator extends Thread{
                 if (!queue.isEmpty()) {
                     //queue is ordered by closest operation from current location that has the same direction
                     Operation temp = queue.getFirst();
-                    if(temp == null)
-                         continue;
-                    if ((int) temp.location == 32000) {
-                        sendMove(0);
-                        continue;
-                    }
+                    if(temp == null)    continue;
+                    if ((int) temp.location == 32000) { sendMove(0); continue;}
 
                     //set direction
                     this.direction = temp.direction;
                     //move in right direction
                     sendMove(this.direction);
 
-                    //are we on a floor?
+                    //start checking stuff at every new location
+                    while (true){
+                            queueLock.lock();
+                            Operation current;
+                            current = queue.getFirst();
 
+                            if ((int) current.location == 32000) {
 
+                                sendMove(0);
+                                queueLock.unlock();
+                                break;
+                            }
+                            queueLock.unlock();
+                            float at;
 
-                        while (true){
-                                queueLock.lock();
-                                Operation current;
+                            locLock.lock();
+                            at = this.location;
+                            locLock.unlock();
+                            float onFloor = Math.abs(at - Math.round(at));
+                            if (onFloor < 0.04) {
+                                //System.out.println(onFloor);
+                                boolean toOpen = false;
 
-                                current = queue.getFirst();
+                                toOpen = Handler.checkFloor(Math.round(at),this.direction);
+                                if (Math.round(current.location) == Math.round(at)){
+                                    toOpen = true;
+                                }
 
-                                if ((int) current.location == 32000) {
-
+                                if (toOpen) {
                                     sendMove(0);
-                                    queueLock.unlock();
+                                    this.direction = 0;
+                                    setDoor(1);
+                                    System.out.println(id + ": Doors Open");
+                                    Thread.sleep(8000);
+                                    System.out.println(id + ": Doors Closed");
+                                    setDoor(-1);
+                                    if (Math.round(current.location) == Math.round(at)) {
+                                        queueLock.lock();
+                                        synchronized (Handler.class) {
+                                            queue.remove(current);
+                                        }
+                                        queueLock.unlock();
+                                    }
+                                    for (Operation t: queue) {
+                                        System.out.println(t.direction);
+                                    }
                                     break;
                                 }
-                                queueLock.unlock();
-                                float at;
 
-                                locLock.lock();
-                                at = this.location;
-                                locLock.unlock();
-                                float onFloor = Math.abs(at - Math.round(at));
-                                if (onFloor < 0.04) {
-                                    //System.out.println(onFloor);
-                                    boolean toOpen = false;
-                                    int myDir = 0;
-
-                                    toOpen = Handler.checkFloor(Math.round(at),this.direction);
-                                    if (Math.round(current.location) == Math.round(at)){
-                                        toOpen = true;
-                                    }
-
-                                    if (toOpen) {
-                                        sendMove(0);
-                                        this.direction = 0;
-                                        setDoor(1);
-                                        System.out.println(id + ": Doors Open");
-                                        Thread.sleep(8000);
-                                        System.out.println(id + ": Doors Closed");
-                                        setDoor(-1);
-                                        if (Math.round(current.location) == Math.round(at)) {
-                                            queueLock.lock();
-                                            synchronized (Handler.class) {
-                                                queue.remove(current);
-                                            }
-                                            queueLock.unlock();
-                                        }
-                                        for (Operation t: queue) {
-                                            System.out.println(t.direction);
-                                        }
-                                        break;
-                                    }
-
-                                }
                             }
+                        }
 
                     }
-
-
-
                 else{
                         Operation temp = null;
                         synchronized (Handler.class) {
@@ -223,7 +210,6 @@ public class Elevator extends Thread{
     //1 open - -1 close
     synchronized void setDoor(int c){
         String d = ("d " + this.id + " " + c);
-        this.door = c;
         Handler.sendCommand(d);
     }
 }

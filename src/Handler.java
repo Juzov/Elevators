@@ -15,30 +15,24 @@ class Handler {
 
     final private static Object s = new Object();
 
+    //bcommand method adds  boperation into list of not yet taken calls of elevator
     static public void addBOperation(Operation newOp){
         synchronized (s){
+            if(bOperations.isEmpty()) { bOperations.addLast(newOp);  return;}
 
-            if(bOperations.isEmpty())
-            {bOperations.addLast(newOp); System.out.println(newOp.direction + " " + newOp.location); return;}
-            Iterator<Operation> it= bOperations.listIterator();
+            else if(bOperations.getLast().isEqual(newOp)) return;
 
-            if(bOperations.getLast().isEqual(newOp)) {System.out.println(newOp.direction + " " + newOp.location); return; }
             bOperations.addLast(newOp);
-
-            for (Operation temp: bOperations) {
-                System.out.println(temp.direction + " " + temp.location);
-            }
-            System.out.println();
-
         }
     }
 
+    //elevator of same direction finds someone waiting outside going the same direction
     static public boolean checkFloor(int floor, int direction) {
         boolean remove = false;
         synchronized (s) {
 
             if (bOperations.isEmpty())
-                return remove;
+                return false;
 
             for (Operation temp : bOperations) {
                 if (Math.round(temp.location) == floor) {
@@ -56,33 +50,21 @@ class Handler {
     //instead of being the floor button direction
     static public Operation checkNearest(float location){
         float minDiff = 100;
-        int dir = 0;
         Operation nearest = null;
         synchronized (s) {
-            if (bOperations.isEmpty())
-                return null;
+            if (bOperations.isEmpty()) return null;
 
             for (Operation temp : bOperations) {
                 float diff = Math.abs(location - temp.location);
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    nearest = temp;
-                }
+                if (diff < minDiff) { minDiff = diff; nearest = temp;}
             }
             bOperations.remove(nearest);
 
-            if(nearest == null)
-                return null;
+            if(nearest == null) return null;
 
-            if(nearest.location - location > 0){
-                nearest.direction = 1;
-            }
-            else if(nearest.location - location == 0){
-                nearest.direction = 0;
-            }
-            else
-                nearest.direction = -1;
-
+            if(nearest.location - location > 0)         nearest.direction = 1;
+            else if(nearest.location - location == 0)   nearest.direction = 0;
+            else                                        nearest.direction = -1;
             return nearest;
         }
     }
