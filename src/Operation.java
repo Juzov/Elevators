@@ -13,7 +13,7 @@ public class Operation {
 
     //for this tasks sake, they are equal if the direction is zero also
     public boolean isEqual(Operation temp){
-        return (temp.direction == direction || temp.direction == -1) && temp.location == location;
+        return (temp.direction == direction) && temp.location == location;
     }
 
 

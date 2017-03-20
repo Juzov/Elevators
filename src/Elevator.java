@@ -23,9 +23,9 @@ public class Elevator extends Thread{
     public void run() {
         //fix internal struggles
 
+        while (true){
+            try{
 
-        try{
-            while (true){
                 if (!queue.isEmpty()) {
                     //queue is ordered by closest operation from current location that has the same direction
                     Operation temp = queue.getFirst();
@@ -47,7 +47,10 @@ public class Elevator extends Thread{
 
                         while (true){
                                 queueLock.lock();
-                                Operation current = queue.getFirst();
+                                Operation current;
+
+                                current = queue.getFirst();
+
                                 if ((int) current.location == 32000) {
 
                                     sendMove(0);
@@ -55,28 +58,40 @@ public class Elevator extends Thread{
                                     break;
                                 }
                                 queueLock.unlock();
-                                //System.out.println("hello");
-                                //locLock.lock();
                                 float at;
 
                                 locLock.lock();
                                 at = this.location;
                                 locLock.unlock();
                                 float onFloor = Math.abs(at - Math.round(at));
-                                if (onFloor < 0.020) {
+                                if (onFloor < 0.04) {
                                     //System.out.println(onFloor);
+                                    boolean toOpen = false;
+                                    int myDir = 0;
 
+                                    toOpen = Handler.checkFloor(Math.round(at),this.direction);
+                                    if (Math.round(current.location) == Math.round(at)){
+                                        toOpen = true;
+                                    }
 
-                                    if (Math.round(current.location) == Math.round(at)) {
+                                    if (toOpen) {
                                         sendMove(0);
+                                        this.direction = 0;
                                         setDoor(1);
                                         System.out.println(id + ": Doors Open");
                                         Thread.sleep(8000);
                                         System.out.println(id + ": Doors Closed");
                                         setDoor(-1);
-                                        queueLock.lock();
-                                        queue.remove(current);
-                                        queueLock.unlock();
+                                        if (Math.round(current.location) == Math.round(at)) {
+                                            queueLock.lock();
+                                            synchronized (Handler.class) {
+                                                queue.remove(current);
+                                            }
+                                            queueLock.unlock();
+                                        }
+                                        for (Operation t: queue) {
+                                            System.out.println(t.direction);
+                                        }
                                         break;
                                     }
 
@@ -88,22 +103,25 @@ public class Elevator extends Thread{
 
 
                 else{
-                    synchronized (Handler.class) {
+                        Operation temp = null;
+                        synchronized (Handler.class) {
+                            temp = Handler.checkNearest(this.location);
+                            if (temp == null)
+                                continue;
+                            queueLock.lock();
+                            queue.add(temp);
+                            queueLock.unlock();
+                            System.out.println("Hello");
+                        }
 
-
-                    }
-
-                    /*Operation temp = Handler.bMonitor.checkNearest(this.location);
-                    if(temp != null){
-                        setDoor(1);
-                        System.out.println(id + ": Doors Open");
-                        sleep(200);
-                        System.out.println(id + ": Doors Closed");
-                        setDoor(-1);
-                    }*/
-                    }
                 }
+
             }catch(Exception E){
+                System.out.println("Sup");
+                sendMove(0);
+                run();
+            }
+
         }
     }
 
@@ -192,31 +210,20 @@ public class Elevator extends Thread{
         }
     }
 
-    synchronized public void addOpFirst(Operation temp){
-        this.direction = 0;
-        queue.clear();
-        queue.add(temp);
-    }
-
-    synchronized private void sendWhere(){
-        String w = ("w " + id);
-        Handler.sendCommand(w);
-    }
 
 
     synchronized private void sendMove(int direction){
         String m = ("m " + id + " " + direction);
+        this.direction = direction;
         Handler.sendCommand(m);
     }
 
-    synchronized void toggleDoors(int bool){
-        String d = ("d " + id + " " + bool);
-        Handler.sendCommand(d);
-    }
+
 
     //1 open - -1 close
     synchronized void setDoor(int c){
         String d = ("d " + this.id + " " + c);
+        this.door = c;
         Handler.sendCommand(d);
     }
 }

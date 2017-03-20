@@ -1,64 +1,93 @@
-import sun.awt.image.ImageWatched;
+
 
 import java.net.Socket;
 import java.io.*;
-import java.util.IllegalFormatException;
-import java.util.LinkedList;
 import java.util.Iterator;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.LinkedList;
+
 
 class Handler {
 
     private static PrintWriter wr;
     private static Elevator[] elevators;
-    public static bMonitor bqueue;
+    //public static bMonitor bqueue = new bMonitor();
+    private static LinkedList<Operation> bOperations = new LinkedList<>();
 
+    final private static Object s = new Object();
 
-    public class bMonitor{
-        private LinkedList<Operation> bOperations= new LinkedList<>();
+    static public void addBOperation(Operation newOp){
+        synchronized (s){
 
-        synchronized public void addBOperation(Operation add){
-            if(add == null) return;
             if(bOperations.isEmpty())
-            {System.out.println("Wassa");bOperations.addLast(add); return;}
-            for (Operation temp : bOperations)
-                if(temp.isEqual(add)) {System.out.println("Nassa"); return; }
-            bOperations.addLast(add);
+            {bOperations.addLast(newOp); System.out.println(newOp.direction + " " + newOp.location); return;}
+            Iterator<Operation> it= bOperations.listIterator();
+
+            if(bOperations.getLast().isEqual(newOp)) {System.out.println(newOp.direction + " " + newOp.location); return; }
+            bOperations.addLast(newOp);
+
+            for (Operation temp: bOperations) {
+                System.out.println(temp.direction + " " + temp.location);
+            }
+            System.out.println();
 
         }
-        //check if elevator is in the same floor & that its the right direction
-        synchronized public Operation checkFloor(int floor) {
-            if(bOperations.isEmpty())
-                return null;
+    }
 
-            for (Operation temp : bOperations)
-                if(Math.round(temp.location) == floor) {
-                    bOperations.remove(temp);
-                    return temp;
+    static public boolean checkFloor(int floor, int direction) {
+        boolean remove = false;
+        synchronized (s) {
+
+            if (bOperations.isEmpty())
+                return remove;
+
+            for (Operation temp : bOperations) {
+                if (Math.round(temp.location) == floor) {
+                    if (temp.direction == direction) {
+                        bOperations.remove(temp);
+                        remove = true;
+                    }
                 }
-            return null;
+            }
+            return remove;
         }
+    }
 
-        //Gets called upon free elevator
-        synchronized public Operation checkNearest(float location ){
-            float minDiff = 100;
-            Operation nearest = null;
-
-            if(bOperations.isEmpty())
+    //the direction here will be the direction from current position
+    //instead of being the floor button direction
+    static public Operation checkNearest(float location){
+        float minDiff = 100;
+        int dir = 0;
+        Operation nearest = null;
+        synchronized (s) {
+            if (bOperations.isEmpty())
                 return null;
 
-            for (Operation temp : bOperations){
+            for (Operation temp : bOperations) {
                 float diff = Math.abs(location - temp.location);
-                if(diff < minDiff) {
+                if (diff < minDiff) {
+                    minDiff = diff;
                     nearest = temp;
-                    minDiff = location;
                 }
             }
             bOperations.remove(nearest);
+
+            if(nearest == null)
+                return null;
+
+            if(nearest.location - location > 0){
+                nearest.direction = 1;
+            }
+            else if(nearest.location - location == 0){
+                nearest.direction = 0;
+            }
+            else
+                nearest.direction = -1;
+
             return nearest;
         }
     }
+
+
 
 
     synchronized public static void sendCommand(String command)
@@ -94,22 +123,18 @@ class Handler {
     //if so put him into the elevator operation queue.
 
     //b location direction
-    static void bCommand(String[] sCommand) throws InterruptedException {
-        for (String s:sCommand) {
-            System.out.println(s);
-        }
+    static void bCommand(String[] sCommand){
 
         float floor = Float.parseFloat(sCommand[1]);
         int direction = Integer.parseInt(sCommand[2]);
-        System.out.println(" ");
-        System.out.println(floor + " " + direction);
 
 
         Operation temp = new Operation(direction,floor);
 
- /*       synchronized (Handler.class){
-            bqueue.addBOperation(temp);
-        }*/
+
+        synchronized (s){
+            addBOperation(temp);
+        }
 
     }
 
